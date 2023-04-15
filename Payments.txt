@@ -1,0 +1,121 @@
+SET SERVEROUTPUT ON;
+create or replace procedure  amount_num
+is
+num_payments number;
+amount_to_pay number ;
+INSTALLMENT_DATE_var date ;
+
+
+cursor contract_cursor is 
+ SELECT * FROM contracts;
+            
+begin 
+
+
+ for record_data in contract_cursor loop
+ --the first loop on the contract on all the table for example cont1 do the folloing
+
+
+ num_payments := installment_num(record_data.CONTRACT_STARTDATE  , record_data.CONTRACT_ENDDATE  ,record_data. CONTRACT_PAYMENT_TYPE) ;
+ if (record_data.CONTRACT_DEPOSIT_FEES is not null) then
+ amount_to_pay := (  record_data.CONTRACT_TOTAL_FEES - record_data.CONTRACT_DEPOSIT_FEES)/num_payments;
+ else 
+ amount_to_pay := (record_data.CONTRACT_TOTAL_FEES)/num_payments;
+ end if ; 
+ --the next value contain the start date to increas it later 
+ INSTALLMENT_DATE_var:= record_data.CONTRACT_STARTDATE ;
+
+ 
+ for i in 1..num_payments loop 
+ --dbms_output.put_line(num_payments );
+   
+ 
+ insert into INSTALLMENTS_PAID ( INSTALLMENT_ID, CONTRACT_ID, INSTALLMENT_DATE, INSTALLMENT_AMOUNT, PAID )
+                            values  (id_seq1.nextval ,  record_data.CONTRACT_ID ,INSTALLMENT_DATE_var, amount_to_pay,  0 );
+                            
+                             
+                            
+                             INSTALLMENT_DATE_var := get_new_date(INSTALLMENT_DATE_var ,record_data.CONTRACT_PAYMENT_TYPE);
+                            
+ 
+ end loop;
+ 
+ end loop;
+
+_______________
+
+CREATE OR REPLACE FUNCTION installment_num(CONTRACT_STARTDATE date , CONTRACT_ENDDATE date , CONTRACT_PAYMENT_TYPE varchar2)
+-- بترجعلي عدد الدفعات على حسب لو كان النوع سنوي او نص سنه وهكذا 
+RETURN number
+is 
+
+
+months_num number(2);
+
+BEGIN
+
+
+months_num:=months_between (CONTRACT_ENDDATE ,CONTRACT_STARTDATE  );
+if (contract_payment_type ='ANNUAL')
+THEN 
+return  months_num/12;
+elsif (contract_payment_type ='QUARTER')
+then return months_num/3;
+elsif (contract_payment_type ='MONTHLY')
+then return months_num/1;
+elsif (contract_payment_type ='HALF_ANNUAL')
+THEN return months_num/6;
+else 
+return 1;
+
+END IF;
+
+
+END;
+show errors
+
+
+______________
+CREATE or replace FUNCTION get_new_date(CONTRACT_STARTDATE date,CONTRACT_PAYMENT_TYPE varchar)
+RETURN date
+is 
+
+BEGIN
+
+if (CONTRACT_PAYMENT_TYPE='ANNUAL') then 
+return add_months( CONTRACT_STARTDATE,12);
+
+elsif( CONTRACT_PAYMENT_TYPE='QUARTER')  then
+ return add_months (CONTRACT_STARTDATE,3);
+ 
+elsif (CONTRACT_PAYMENT_TYPE='MONTHLY') then 
+return add_months (CONTRACT_STARTDATE,1);
+
+elsif (CONTRACT_PAYMENT_TYPE='HALF_ANNUAL') then  
+return add_months (CONTRACT_STARTDATE,6);
+
+else 
+return add_months (CONTRACT_STARTDATE,0);
+end if;
+ 
+ end;
+ 
+ show errors
+
+_____________
+
+CREATE SEQUENCE id_seq1
+
+START WITH 1
+ INCREMENT BY 1
+MAXVALUE 99999999
+ MINVALUE 1;
+
+___________
+
+declare 
+
+begin 
+amount_num;
+end;
+select * from INSTALLMENTS_PAID;
